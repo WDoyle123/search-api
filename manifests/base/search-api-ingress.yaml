@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: search-api-ingress
+  namespace: search-api
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - search-api.williamdoyle.co.uk
+      secretName: search-api-tls
+  rules:
+    - host: search-api.williamdoyle.co.uk
+      http:
+        paths:
+          - path: /v1
+            pathType: Prefix
+            backend:
+              service:
+                name: search-api-service
+                port:
+                  number: 8000

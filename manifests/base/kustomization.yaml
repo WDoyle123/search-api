@@ -1,0 +1,7 @@
+resources:
+  - search-api-deployment.yaml
+  - search-api-ingress.yaml
+  - search-api-service.yaml
+  - search-db-secret.yaml 
+  - search-db-service.yaml 
+  - search-db-statefulset.yaml 
