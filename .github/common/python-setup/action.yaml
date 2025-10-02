@@ -1,0 +1,37 @@
+name: Python environment setup
+description: Creates a venv (or restores it from cache) and installs pip dependencies.
+
+inputs:
+  workdir:
+    description: Directory containing dev-requirements.txt
+    required: false
+    default: app 
+
+runs:
+  using: composite
+  steps:
+    - name: Cache Python venv
+      id: venv-cache
+      uses: actions/cache@v3
+      with:
+        path: |
+          ${{ inputs.workdir }}/.venv
+          ~/.cache/pip
+        key: ${{ runner.os }}-venv-${{ hashFiles(format('{0}/dev-requirements.txt', inputs.workdir)) }}
+
+    - name: Create & install venv (if needed)
+      if: steps.venv-cache.outputs.cache-hit != 'true'
+      working-directory: ${{ inputs.workdir }}
+      shell: bash
+      run: |
+        python3 -m venv .venv
+        source .venv/bin/activate
+        pip install --upgrade pip
+        pip install -r dev-requirements.txt
+
+    - name: Activate venv
+      working-directory: ${{ inputs.workdir }}
+      shell: bash
+      run: |
+        source .venv/bin/activate
+

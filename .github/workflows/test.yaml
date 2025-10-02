@@ -1,0 +1,40 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - "**"
+    paths:
+      - "**"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "**"
+
+permissions:
+  contents: write
+
+env:
+  DATABASE_NAME: ${{ secrets.DATABASE_NAME }}
+  DATABASE_USERNAME: ${{ secrets.DATABASE_USERNAME }}
+  DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
+  DATABASE_HOSTNAME: ${{ secrets.DATABASE_HOSTNAME }}
+  DATABASE_PORT: ${{ secrets.DATABASE_PORT }}
+
+jobs:
+  pytest:
+    runs-on: [self-hosted, linux]
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - uses: ./.github/common/python-setup
+        with:
+          workdir: .
+
+      - name: Run tests
+        working-directory: .
+        run: |
+          source .venv/bin/activate
+          pytest
