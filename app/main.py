@@ -2,11 +2,43 @@ from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 
-from app.db import engine
-from app.models import Base
+from app.db import SessionLocal, engine
+from app.models import Base, Events, Hotels
+from app.routes import search
 
 
 Base.metadata.create_all(bind=engine)
+
+
+def seed_initial_data() -> None:
+    session = SessionLocal()
+
+    try:
+        session.merge(
+            Events(
+                eventID=1,
+                latitude=51.5007,
+                longitude=-0.1246,
+            )
+        )
+
+        hotels = [
+            Hotels(hotelID=101, latitude=51.5033, longitude=-0.1195),
+            Hotels(hotelID=102, latitude=51.5094, longitude=-0.1183),
+            Hotels(hotelID=103, latitude=51.4952, longitude=-0.1469),
+            Hotels(hotelID=104, latitude=51.5155, longitude=-0.0720),
+            Hotels(hotelID=105, latitude=51.4700, longitude=-0.4543),
+        ]
+
+        for hotel in hotels:
+            session.merge(hotel)
+
+        session.commit()
+    finally:
+        session.close()
+
+
+seed_initial_data()
 
 app = FastAPI(
     title="Search API",
@@ -25,11 +57,10 @@ app.add_middleware(
 )
 
 api_router = APIRouter(prefix="/v1")
+api_router.include_router(search.router)
 
 @api_router.get("/", response_class=HTMLResponse)
 async def read_root():
     return HTMLResponse(content="<h1>Search API</h1>", status_code=200)
 
 app.include_router(api_router)
-
-

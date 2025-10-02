@@ -1,13 +1,13 @@
 FROM python:3.13-alpine
 
-WORKDIR /app
+WORKDIR /search-api
 
 COPY requirements.txt requirements.txt
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app .
+COPY app/ ./app/
 
 EXPOSE 8000
+CMD ["uvicorn", "app.main:app","--reload", "--host", "0.0.0.0", "--port", "8000"]
 
-CMD ["uvicorn", "main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"]

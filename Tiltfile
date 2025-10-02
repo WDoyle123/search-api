@@ -2,8 +2,8 @@ docker_build(
   'wdoyle123/search-api',      
   '.',                        
   live_update=[
-    sync('.', '/app'),
-    run('pip install -r requirements.txt', trigger=['requirements.txt']),
+    sync('app', '/search-api/app'),
+    run('pip install -r search-api/requirements.txt', trigger=['requirements.txt']),
   ]
 )
 
