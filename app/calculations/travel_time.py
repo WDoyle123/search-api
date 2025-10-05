@@ -12,7 +12,7 @@ def travel_time(data: TravelRequest) -> TravelResponse:
     fixed_overhead_hr = {
         "walking": 0,
         "driving": 0,
-        "public_transport": 8 / 60  # 8 minutes
+        "public_transport": 8 / 60  # 8 minutes in hours
     }
 
     travel_time_dict = {}
@@ -20,7 +20,8 @@ def travel_time(data: TravelRequest) -> TravelResponse:
     for mode in data.modes:
         travel_time_hr = (data.distance_km /
                           speed_kmh[mode]) + fixed_overhead_hr[mode]
-        travel_time_hr_rounded = round(travel_time_hr, 3)
-        travel_time_dict[mode] = travel_time_hr_rounded
+        travel_time_seconds = travel_time_hr * 60 * 60
+        travel_time_seconds_rounded = int(round(travel_time_seconds))
+        travel_time_dict[mode] = travel_time_seconds_rounded
 
     return TravelResponse(travel_times=travel_time_dict)
