@@ -84,9 +84,9 @@ jobs:
         with:
           kubeconfig: ${{ secrets.KUBECONFIG }}
 
-      - name: Deploy backend base manifests
+      - name: Deploy base manifests
         run: |
-          if kubectl apply -k backend/manifests/base --namespace=search-api; then
+          if kubectl apply -k manifests/base --namespace=search-api; then
             echo "✅ Backend base manifests applied"
           else
             echo "❌ Failed to apply backend base manifests" >&2
