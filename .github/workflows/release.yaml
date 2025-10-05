@@ -1,0 +1,228 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - 'main'
+
+concurrency:
+  group: actions-lock
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  DATABASE_NAME:             ${{ secrets.DATABASE_NAME }}
+  DATABASE_USERNAME:         ${{ secrets.DATABASE_USERNAME }}
+  DATABASE_PASSWORD:         ${{ secrets.DATABASE_PASSWORD }}
+  DATABASE_HOSTNAME:         ${{ secrets.DATABASE_HOSTNAME }}
+  DATABASE_PORT:             ${{ secrets.DATABASE_PORT }}
+
+jobs:
+  semver-check:
+    runs-on: [self-hosted, linux]
+    outputs:
+      changed: ${{ steps.semver.outputs.changed }}
+      version: ${{ steps.semver.outputs.version }}
+      prev_tag: ${{ steps.get_prev_tag.outputs.prev_tag }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Get previous Git tag
+        id: get_prev_tag
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          echo "prev_tag=$PREV_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Generate Semantic Version
+        id: semver
+        uses: paulhatch/semantic-version@v5.4.0
+        with:
+          tag_prefix: "v"
+          major_pattern: "BREAKING CHANGE|!:"
+          minor_pattern: "^feat:"
+          version_format: "${major}.${minor}.${patch}"
+          search_commit_body: false
+          bump_each_commit: true
+
+      - name: Skip if no version bump
+        if: steps.semver.outputs.changed != 'true'
+        run: echo "No semantic version change; skipping release."
+
+  pytest:
+    needs: semver-check
+    if: needs.semver-check.outputs.changed == 'true'
+    runs-on: [self-hosted, linux]
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - uses: ./.github/common/python-setup
+        with:
+          workdir: .
+
+      - name: Run tests
+        working-directory: . 
+        run: |
+          source .venv/bin/activate
+          pytest -v
+
+
+  apply-manifests:
+    needs: semver-check
+    runs-on: [self-hosted, linux]
+    env:
+      VERSION: ${{ needs.semver-check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/common/k8s-tooling
+        with:
+          kubeconfig: ${{ secrets.KUBECONFIG }}
+
+      - name: Deploy backend base manifests
+        run: |
+          if kubectl apply -k backend/manifests/base --namespace=search-api; then
+            echo "✅ Backend base manifests applied"
+          else
+            echo "❌ Failed to apply backend base manifests" >&2
+            exit 1
+          fi
+
+
+  build-search-api:
+    needs: [semver-check, pytest, apply-manifests]
+    if: >
+        needs.semver-check.outputs.changed == 'true' &&
+        needs.pytest.result == 'success'
+    runs-on: [self-hosted, linux]
+    env:
+      VERSION: ${{ needs.semver-check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up QEMU (for multi-arch)
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v2
+        with:
+          driver: docker-container
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build & push search-api
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          builder: ${{ steps.buildx.outputs.name }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            wdoyle123/search-api:${{ env.VERSION }}
+            wdoyle123/search-api:latest
+          cache-from: type=registry,ref=wdoyle123/search-api:cache
+          cache-to: type=registry,ref=wdoyle123/search-api:cache,mode=max
+
+
+  deploy-search-api:
+    needs: [semver-check, build-search-api]
+    runs-on: [self-hosted, linux]
+    env:
+      VERSION: ${{ needs.semver-check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - uses: ./.github/common/k8s-tooling
+        with:
+          kubeconfig: ${{ secrets.KUBECONFIG }}
+
+      - name: Wait for search-api to be Pullable
+        run: |
+          IMAGE=wdoyle123/search-api:${{ env.VERSION }}
+          for i in {1..12}; do
+            if docker pull "$IMAGE"; then exit 0; fi
+            sleep 10
+          done
+          echo "❌ Failed to pull $IMAGE" && exit 1
+
+      - name: Update search-api container image to new tag
+        run: |
+          CONTAINER=$(kubectl get deployment search-api-deployment \
+            -n search-api -o jsonpath='{.spec.template.spec.containers[0].name}')
+          kubectl set image deployment/search-api-deployment \
+            ${CONTAINER}=wdoyle123/search-api:${{ env.VERSION }} \
+            --namespace=search-api --record
+
+      - name: Wait for rollout (and rollback on failure)
+        id: rollout
+        run: |
+          kubectl rollout status deployment/search-api-deployment \
+            --namespace=search-api --timeout=3m || {
+              kubectl rollout undo deployment/search-api-deployment --namespace=search-api
+              exit 1
+            }
+
+
+  tag-and-release:
+    needs: [semver-check, deploy-search-api]
+    runs-on: [self-hosted, linux]
+    env:
+      VERSION: ${{ needs.semver-check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Create and Push Git Tag
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          TAG="v${{ env.VERSION }}"
+          git tag "$TAG"
+          git push origin "$TAG"
+
+      - name: Build Changelog from Commits Since Previous Tag
+        env:
+          VERSION: ${{ needs.semver-check.outputs.version }}
+        id: changelog
+        shell: bash
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          echo "Previous tag: $PREV_TAG"
+
+          if [ -n "$PREV_TAG" ]; then
+            COMMITS=$(git log "$PREV_TAG"..HEAD --pretty=format:"- %s")
+          else
+            COMMITS=$(git log --pretty=format:"- %s")
+          fi
+
+          {
+            echo "body<<EOF"
+            echo "$COMMITS"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release (with full commit list)
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: "v${{ env.VERSION }}"
+          release_name: "search-api v${{ env.VERSION }}"
+          body: ${{ steps.changelog.outputs.body }}
+          draft: false
+          prerelease: false
+
