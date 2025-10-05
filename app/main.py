@@ -46,6 +46,9 @@ app = FastAPI(
     docs_url="/v1/docs",
     redoc_url="/v1/redoc",
     openapi_url="/v1/openapi.json",
+    description=(
+        "**GitHub Repository:** [WDoyle123/search-api](https://github.com/WDoyle123/search-api)"
+    ),
 )
 
 origins = ["*"]
