@@ -6,14 +6,28 @@ from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
+    Query,
 )
 
-from app.schemas import HotelOut, EventOut
+from app.schemas import HotelInRange, HotelOut, EventOut
+from app.calculations import haversine
 
 from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/search", tags=["Search"])
 
+@router.get(
+    "",
+)
+def list_hotels_in_range(
+    db: Session = Depends(get_db),
+    event_id: int = Query(..., description="ID of the event to search around"),
+    radius_km: int = Query(10, ge=1, le=100, description="Search radius in kilometers"),
+    modes: str = Query("walking", description="Comma-separated list of travel modes"),
+    sort_by: str = Query("travel time", description="sort criteria: distance, travel time")
+):
+
+    return event_id
 
 @router.get(
     "/hotels",
