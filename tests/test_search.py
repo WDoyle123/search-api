@@ -1,3 +1,13 @@
+def test_get_hotels_in_range_event_id(client, seed_events):
+    response = client.get("v1/search/?event_id=1")
+    assert response.status_code == 200
+
+
+def test_get_hotels_in_range_no_event_id(client, seed_events):
+    response = client.get("v1/search/")
+    assert response.status_code == 400
+
+
 def test_get_hotels(client, seed_hotels):
     response = client.get("v1/search/hotels")
     assert response.status_code == 200
