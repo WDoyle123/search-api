@@ -60,10 +60,10 @@ def test_get_hotels_in_range_with_hotels_in_range(client, seed_events, seed_hote
         assert "hotelID" in hotel
         assert "latitude" in hotel
         assert "longitude" in hotel
-        assert "distance" in hotel
-        assert "travel_times" in hotel
-        assert "walking" in hotel["travel_times"]
-        assert "driving" in hotel["travel_times"]
+        assert "distance_km" in hotel
+        assert "estimated_travel" in hotel
+        assert "walking" in hotel["estimated_travel"]
+        assert "driving" in hotel["estimated_travel"]
 
 
 def test_get_hotels_in_range_invalid_modes(client, seed_events, seed_hotels):
@@ -84,10 +84,10 @@ def test_get_hotels_in_range_all_transport_modes(client, seed_events, seed_hotel
     data = response.json()
     assert len(data) > 0
     for hotel in data:
-        assert "travel_times" in hotel
-        assert "walking" in hotel["travel_times"]
-        assert "driving" in hotel["travel_times"]
-        assert "public_transport" in hotel["travel_times"]
+        assert "estimated_travel" in hotel
+        assert "walking" in hotel["estimated_travel"]
+        assert "driving" in hotel["estimated_travel"]
+        assert "public_transport" in hotel["estimated_travel"]
 
 
 def test_get_hotels_in_range_single_mode(client, seed_events, seed_hotels):
@@ -96,9 +96,9 @@ def test_get_hotels_in_range_single_mode(client, seed_events, seed_hotels):
     data = response.json()
     assert len(data) > 0
     for hotel in data:
-        assert "travel_times" in hotel
-        assert "public_transport" in hotel["travel_times"]
-        assert len(hotel["travel_times"]) == 1
+        assert "estimated_travel" in hotel
+        assert "public_transport" in hotel["estimated_travel"]
+        assert len(hotel["estimated_travel"]) == 1
 
 
 def test_get_hotels_in_range_small_radius(client, seed_events, seed_hotels):

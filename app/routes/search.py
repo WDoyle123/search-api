@@ -56,14 +56,14 @@ def list_hotels_in_range(
 
         hotel_coordinates = (hotel.latitude, hotel.longitude)
         haversine_distance = (haversine(event_coordinates, hotel_coordinates))
-        hotel.distance = haversine_distance
+        hotel.distance_km = haversine_distance
 
-        if hotel.distance <= radius_km:
+        if hotel.distance_km <= radius_km:
             hotels_in_range.append(hotel)
 
             try:
                 travel_time_request = TravelRequest(
-                    modes=modes_array, distance_km=hotel.distance)
+                    modes=modes_array, distance_km=hotel.distance_km)
             except ValidationError as e:
                 raise HTTPException(
                     status_code=400,
@@ -72,7 +72,7 @@ def list_hotels_in_range(
                 )
 
             travel_time_response = travel_time(travel_time_request)
-            hotel.travel_times = travel_time_response.travel_times
+            hotel.estimated_travel = travel_time_response.travel_times
 
     return hotels_in_range
 

@@ -17,8 +17,8 @@ class HotelInRange(BaseModel):
     hotelID: int
     latitude: float
     longitude: float
-    distance: float
-    travel_times: Dict[str, float]
+    distance_km: float
+    estimated_travel: Dict[str, float]
 
     model_config = ConfigDict(from_attributes=True)
 
