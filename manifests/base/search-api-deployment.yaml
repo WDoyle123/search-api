@@ -50,7 +50,7 @@ spec:
               containerPort: 8000
           livenessProbe:
             httpGet:
-              path: v1/
+              path: v1/docs
               port: 8000
             initialDelaySeconds: 15
             timeoutSeconds: 5
@@ -58,7 +58,7 @@ spec:
             failureThreshold: 3
           readinessProbe:
             httpGet:
-              path: v1/
+              path: v1/docs
               port: 8000
             initialDelaySeconds: 5
             timeoutSeconds: 2

@@ -1,6 +1,5 @@
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.responses import JSONResponse
 
@@ -65,9 +64,5 @@ async def validation_exception_400(request, exc: RequestValidationError):
 
 api_router = APIRouter(prefix="/v1")
 api_router.include_router(search.router)
-
-@api_router.get("/", response_class=HTMLResponse)
-async def read_root():
-    return HTMLResponse(content="<h1>Search API</h1>", status_code=200)
 
 app.include_router(api_router)

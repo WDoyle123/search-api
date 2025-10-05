@@ -25,3 +25,9 @@ def travel_time(data: TravelRequest) -> TravelResponse:
         travel_time_dict[mode] = travel_time_seconds_rounded
 
     return TravelResponse(travel_times=travel_time_dict)
+
+
+def best_time_in_requested_modes(hotel):
+    times = hotel.estimated_travel
+    mode, time = min(times.items(), key=lambda x: x[1])
+    return mode, time

@@ -12,7 +12,7 @@ from fastapi import (
 
 from app.schemas import HotelInRange, HotelOut, EventOut, TravelRequest
 from app.calculations.haversine import haversine
-from app.calculations.travel_time import travel_time
+from app.calculations.travel_time import travel_time, best_time_in_requested_modes
 
 from sqlalchemy.orm import Session
 
@@ -31,7 +31,7 @@ def list_hotels_in_range(
     modes: str = Query(
         "walking", description="Comma-separated list of travel modes"),
     sort_by: str = Query(
-        "travel time", description="sort criteria: distance, travel time")
+        "travel_time", description="sort criteria: distance, travel_time")
 ):
 
     hotels_in_range = []
@@ -73,6 +73,14 @@ def list_hotels_in_range(
 
             travel_time_response = travel_time(travel_time_request)
             hotel.estimated_travel = travel_time_response.travel_times
+
+    if sort_by == "distance":
+        hotels_in_range.sort(key=lambda h: (
+            h.distance_km, best_time_in_requested_modes(h)))
+
+    if sort_by == "travel_time":
+        hotels_in_range.sort(key=lambda h: (
+            best_time_in_requested_modes(h), h.distance_km))
 
     return hotels_in_range
 
